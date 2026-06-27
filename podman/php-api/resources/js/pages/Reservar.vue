@@ -12,6 +12,13 @@ interface Slot {
     notes: string | null;
 }
 
+// Reserva ja existent: inici "YYYY-MM-DD HH:MM", empleat i durada en minuts.
+interface ReservedSlot {
+    start: string;
+    employee_id: number | null;
+    minutes: number;
+}
+
 interface BusinessHour {
     weekday: number; // 0 = dilluns … 6 = diumenge
     closed: boolean;
@@ -72,7 +79,7 @@ interface StockCategory {
 
 const props = defineProps<{
     businessHours: BusinessHour[];
-    reservedTimes: string[];
+    reservedTimes: ReservedSlot[];
     slotMinutes: number;
     myReservations: Reservation[];
     services: Service[];
@@ -317,21 +324,47 @@ const availableDayKeys = computed(() => {
 const selectedDay = ref('');
 const effectiveDay = computed(() => selectedDay.value || availableDayKeys.value[0] || todayKey);
 
-// Hores ja ocupades del dia efectiu (conjunt de "HH:MM").
-const reservedSet = computed(() => {
-    const set = new Set<string>();
-    for (const iso of props.reservedTimes) {
-        const [day, hm] = iso.split(' ');
-        if (day === effectiveDay.value) {
-            set.add(hm);
-        }
-    }
-    return set;
-});
-
 const now = new Date();
 
-// Hores del dia: totes les de l'horari (cada mitja hora) que no estiguin reservades.
+// Durada (min) del servei/opció triat; per defecte, un pas de franja.
+const selectedDurationMinutes = computed(() => {
+    const opt = selectedOption.value;
+    if (opt && opt.duration_minutes > 0) {
+        return opt.duration_minutes;
+    }
+    const svc = selectedService.value;
+    if (svc && svc.duration_minutes > 0) {
+        return svc.duration_minutes;
+    }
+    return props.slotMinutes;
+});
+
+// Trams ja ocupats del dia efectiu per l'empleat triat: [inici, fi) en minuts.
+// Cada reserva bloqueja tota la seva durada, no només l'hora d'inici.
+const occupiedIntervals = computed<Array<[number, number]>>(() => {
+    const intervals: Array<[number, number]> = [];
+    for (const reserved of props.reservedTimes) {
+        const [day, hm] = reserved.start.split(' ');
+        if (day !== effectiveDay.value) {
+            continue;
+        }
+        if (employeeId.value !== null && reserved.employee_id !== employeeId.value) {
+            continue;
+        }
+        const start = toMinutes(hm);
+        const minutes = reserved.minutes > 0 ? reserved.minutes : props.slotMinutes;
+        intervals.push([start, start + minutes]);
+    }
+    return intervals;
+});
+
+// Un servei de durada `duration` que comença a `start` xoca amb algun tram ocupat?
+function overlapsOccupied(start: number, duration: number): boolean {
+    const end = start + duration;
+    return occupiedIntervals.value.some(([s, e]) => start < e && s < end);
+}
+
+// Hores del dia on hi cap tot el servei triat sense solapar-se amb cap reserva.
 const dayTimes = computed<string[]>(() => {
     const h = hoursOf(effectiveDay.value);
     if (!h || h.closed || !h.opens || !h.closes) {
@@ -340,11 +373,11 @@ const dayTimes = computed<string[]>(() => {
     const step = props.slotMinutes;
     const open = toMinutes(h.opens);
     const close = toMinutes(h.closes);
+    const duration = selectedDurationMinutes.value;
     const times: string[] = [];
-    for (let m = open; m + step <= close; m += step) {
-        const label = fromMinutes(m);
-        if (!reservedSet.value.has(label)) {
-            times.push(label);
+    for (let m = open; m + duration <= close; m += step) {
+        if (!overlapsOccupied(m, duration)) {
+            times.push(fromMinutes(m));
         }
     }
     return times;
@@ -361,8 +394,6 @@ const dayClosed = computed(() => {
     return !h || h.closed || !h.opens || !h.closes;
 });
 
-const highlightTimes = computed(() => dayTimes.value);
-
 const time = ref('');
 const note = ref('');
 const serviceId = ref<number | null>(null);
@@ -378,10 +409,12 @@ const isTimeAvailable = computed(() => {
         return false;
     }
     const m = toMinutes(time.value);
-    if (m < toMinutes(h.opens) || m >= toMinutes(h.closes)) {
+    const duration = selectedDurationMinutes.value;
+    // Tot el servei ha de cabre dins de l'horari.
+    if (m < toMinutes(h.opens) || m + duration > toMinutes(h.closes)) {
         return false;
     }
-    if (reservedSet.value.has(time.value)) {
+    if (overlapsOccupied(m, duration)) {
         return false;
     }
     if (effectiveDay.value === todayKey && m <= now.getHours() * 60 + now.getMinutes()) {
@@ -773,7 +806,7 @@ function confirmCancel(): void {
 
                     <div class="rsv-pick-col">
                         <h2 class="rsv-clock-title">{{ t('res.triaHora') }}</h2>
-                        <ClockPicker v-model="time" :highlight-times="highlightTimes" />
+                        <ClockPicker v-model="time" />
                         <div class="rsv-time-input">
                             <label for="time-input">{{ t('res.oEscriu') }}</label>
                             <input id="time-input" v-model="time" type="time" step="60" />

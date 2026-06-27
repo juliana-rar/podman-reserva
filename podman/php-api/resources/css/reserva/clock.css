@@ -1,6 +1,7 @@
 /*
  * Rellotge selector d'hores — disseny modern i sobri (sense neó).
- * Una sola "etiqueta base" (.rsv-clock); la resta es controla per :nth-child.
+ * Mostra les hores (anell exterior) i els quarts/mitja (anell interior),
+ * amb manecilles d'hora i de minut per a un aspecte d'analògic professional.
  */
 
 .rsv-clock {
@@ -33,14 +34,13 @@
     --rsv-tick: #2c313c;
 }
 
-/* --- 1r fill: la cara del rellotge --- */
-.rsv-clock > :nth-child(1) {
+/* --- La cara del rellotge --- */
+.rsv-clock-face {
     position: relative;
     width: var(--rsv-size);
     height: var(--rsv-size);
     border-radius: 50%;
-    background:
-        radial-gradient(circle at 50% 38%, var(--rsv-face), var(--rsv-face-2));
+    background: radial-gradient(circle at 50% 38%, var(--rsv-face), var(--rsv-face-2));
     border: 1px solid var(--rsv-line);
     box-shadow:
         0 1px 2px rgba(16, 24, 40, 0.05),
@@ -49,30 +49,29 @@
     place-items: center;
 }
 
-/* Marques d'hora subtils a la vora (cada 30°) */
-.rsv-clock > :nth-child(1)::before {
+/* Marques a la vora: 60 fines (cada minut) + 12 més marcades (cada hora). */
+.rsv-clock-face::before {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: repeating-conic-gradient(
-        from -0.6deg,
-        var(--rsv-tick) 0deg 1.2deg,
-        transparent 1.2deg 30deg
-    );
+    background:
+        repeating-conic-gradient(from -0.35deg, var(--rsv-tick) 0deg 0.7deg, transparent 0.7deg 6deg),
+        repeating-conic-gradient(from -0.7deg, var(--rsv-muted) 0deg 1.4deg, transparent 1.4deg 30deg);
     -webkit-mask: radial-gradient(circle, transparent 0 89%, #000 90% 95%, transparent 96%);
     mask: radial-gradient(circle, transparent 0 89%, #000 90% 95%, transparent 96%);
 }
 
-/* Contenidor de les 12 hores */
-.rsv-clock > :nth-child(1) > :nth-child(1) {
+/* Contenidor de les 12 hores (anell exterior). */
+.rsv-clock-hours {
     position: absolute;
     inset: 0;
-    z-index: 2;
+    z-index: 3;
+    /* El contenidor ocupa tota la cara; només els botons han de rebre clics. */
+    pointer-events: none;
 }
 
-/* Cadascuna de les 12 hores */
-.rsv-clock > :nth-child(1) > :nth-child(1) > * {
+.rsv-hour {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -88,77 +87,84 @@
     font-size: 1rem;
     font-weight: 500;
     cursor: pointer;
+    pointer-events: auto;
     transform: rotate(var(--a)) translateY(calc(var(--rsv-size) / -2 + 2rem)) rotate(calc(var(--a) * -1));
     transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:hover:not(:disabled) {
+.rsv-hour:hover:not(:disabled) {
     background: var(--rsv-accent-soft);
     color: var(--rsv-accent);
 }
 
-/* Angle de cada hora (12 a dalt = 360°, sentit horari cada 30°) */
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(1)  { --a: 30deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(2)  { --a: 60deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(3)  { --a: 90deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(4)  { --a: 120deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(5)  { --a: 150deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(6)  { --a: 180deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(7)  { --a: 210deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(8)  { --a: 240deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(9)  { --a: 270deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(10) { --a: 300deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(11) { --a: 330deg; }
-.rsv-clock > :nth-child(1) > :nth-child(1) > *:nth-child(12) { --a: 360deg; }
-
-/* Hora seleccionada */
-.rsv-clock > :nth-child(1) > :nth-child(1) > .is-selected {
+/* Hora seleccionada. */
+.rsv-hour.is-selected {
     background: var(--rsv-accent);
     color: #fff;
     font-weight: 600;
     box-shadow: 0 6px 14px -6px var(--rsv-accent);
 }
 
-/* Hora disponible (mode usuari): marcada amb fons d'accent, anell i un punt sota. */
-.rsv-clock > :nth-child(1) > :nth-child(1) > .is-available:not(.is-selected) {
-    background: var(--rsv-accent-soft);
-    color: var(--rsv-accent);
-    font-weight: 700;
-    box-shadow: inset 0 0 0 1.5px var(--rsv-accent);
-}
-
-.rsv-clock > :nth-child(1) > :nth-child(1) > .is-available::after {
-    content: '';
-    position: absolute;
-    bottom: 0.28rem;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0.32rem;
-    height: 0.32rem;
-    border-radius: 50%;
-    background: var(--rsv-accent);
-}
-
-.rsv-clock > :nth-child(1) > :nth-child(1) > .is-available.is-selected::after {
-    background: #fff;
-}
-
-/* Hora deshabilitada */
-.rsv-clock > :nth-child(1) > :nth-child(1) > :disabled {
+/* Hora fora d'horari: deshabilitada, grisa i no clicable. */
+.rsv-hour:disabled {
     color: var(--rsv-muted);
     cursor: not-allowed;
-    opacity: 0.4;
+    opacity: 0.35;
+    text-decoration: line-through;
 }
 
-/* Busca de l'hora (rotació inline des del component) */
-.rsv-clock > :nth-child(1) > :nth-child(2) {
+/* Contenidor dels quarts i mitja (anell interior). */
+.rsv-clock-minutes {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.rsv-minute {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 0.3rem;
-    height: calc(var(--rsv-size) / 2 - 4rem);
-    margin-left: -0.15rem;
-    margin-top: calc((var(--rsv-size) / 2 - 4rem) * -1);
+    width: 1.85rem;
+    height: 1.85rem;
+    margin: -0.925rem 0 0 -0.925rem;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--rsv-line);
+    border-radius: 50%;
+    background: var(--rsv-face);
+    color: var(--rsv-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    pointer-events: auto;
+    transform: rotate(var(--a)) translateY(calc(var(--rsv-size) / -2 + 4.7rem)) rotate(calc(var(--a) * -1));
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.rsv-minute:hover:not(:disabled) {
+    border-color: var(--rsv-accent);
+    color: var(--rsv-accent);
+}
+
+.rsv-minute.is-selected {
+    background: var(--rsv-accent);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 4px 10px -5px var(--rsv-accent);
+}
+
+.rsv-minute:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+/* Manecilles (rotació inline des del component). */
+.rsv-hand {
+    position: absolute;
+    top: 50%;
+    left: 50%;
     border-radius: 1rem;
     background: var(--rsv-accent);
     transform-origin: bottom center;
@@ -167,8 +173,26 @@
     pointer-events: none;
 }
 
-/* Punta de la busca */
-.rsv-clock > :nth-child(1) > :nth-child(2)::after {
+/* Manecilla d'hores: curta i gruixuda. */
+.rsv-hand-hour {
+    width: 0.3rem;
+    height: calc(var(--rsv-size) / 2 - 5rem);
+    margin-left: -0.15rem;
+    margin-top: calc((var(--rsv-size) / 2 - 5rem) * -1);
+}
+
+/* Manecilla de minuts: llarga i fina. */
+.rsv-hand-min {
+    width: 0.2rem;
+    height: calc(var(--rsv-size) / 2 - 3rem);
+    margin-left: -0.1rem;
+    margin-top: calc((var(--rsv-size) / 2 - 3rem) * -1);
+    background: var(--rsv-accent);
+    opacity: 0.65;
+}
+
+/* Punta de la manecilla d'hores. */
+.rsv-hand-hour::after {
     content: '';
     position: absolute;
     top: -0.3rem;
@@ -180,8 +204,8 @@
     background: var(--rsv-accent);
 }
 
-/* Pivot central */
-.rsv-clock > :nth-child(1) > :nth-child(3) {
+/* Pivot central. */
+.rsv-pivot {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -191,12 +215,12 @@
     border-radius: 50%;
     background: var(--rsv-accent);
     box-shadow: 0 0 0 3px var(--rsv-face);
-    z-index: 1;
+    z-index: 2;
     pointer-events: none;
 }
 
-/* --- 2n fill: lectura digital + controls --- */
-.rsv-clock > :nth-child(2) {
+/* --- Lectura digital + controls --- */
+.rsv-clock-ctrls {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -204,8 +228,8 @@
     width: 100%;
 }
 
-/* Lectura digital gran, en pastilla */
-.rsv-clock > :nth-child(2) > :nth-child(1) {
+/* Lectura digital gran, en pastilla. */
+.rsv-readout {
     font-size: 2.25rem;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -216,8 +240,8 @@
     border-radius: 0.85rem;
 }
 
-/* Fila AM/PM: control segmentat */
-.rsv-clock > :nth-child(2) > :nth-child(2) {
+/* Control segmentat AM/PM. */
+.rsv-meridiem {
     display: inline-flex;
     border: 1px solid var(--rsv-line);
     border-radius: 999px;
@@ -225,7 +249,7 @@
     gap: 0.2rem;
 }
 
-.rsv-clock > :nth-child(2) > :nth-child(2) > button {
+.rsv-meridiem > button {
     border: none;
     background: transparent;
     color: var(--rsv-muted);
@@ -237,38 +261,7 @@
     transition: all 0.15s ease;
 }
 
-.rsv-clock > :nth-child(2) > :nth-child(2) > .is-active {
+.rsv-meridiem > .is-active {
     background: var(--rsv-accent);
     color: #fff;
-}
-
-/* Fila de minuts: xips */
-.rsv-clock > :nth-child(2) > :nth-child(3) {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-
-.rsv-clock > :nth-child(2) > :nth-child(3) > button {
-    border: 1px solid var(--rsv-line);
-    background: var(--rsv-face);
-    color: var(--rsv-ink);
-    padding: 0.35rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-variant-numeric: tabular-nums;
-    transition: all 0.15s ease;
-}
-
-.rsv-clock > :nth-child(2) > :nth-child(3) > button:hover {
-    border-color: var(--rsv-accent);
-}
-
-.rsv-clock > :nth-child(2) > :nth-child(3) > .is-active {
-    background: var(--rsv-accent);
-    color: #fff;
-    border-color: transparent;
 }

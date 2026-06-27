@@ -20,13 +20,29 @@ class SlotController extends Controller
      */
     public function index(Request $request): Response
     {
-        // Hores ja ocupades (futures): el frontend les treu de les triables.
+        // Hores ja ocupades (futures): per cada reserva, l'inici, l'empleat i la durada
+        // (en minuts) del servei/opció, perquè el frontend bloquegi tot el tram ocupat.
         $reservedTimes = Slot::query()
             ->has('reservation')
             ->where('starts_at', '>=', now()->startOfDay())
+            ->with([
+                'reservation:id,slot_id,employee_id,service_id,service_option_id',
+                'reservation.service:id,duration_minutes',
+                'reservation.serviceOption:id,duration_minutes',
+            ])
             ->orderBy('starts_at')
-            ->pluck('starts_at')
-            ->map(fn ($startsAt) => $startsAt->format('Y-m-d H:i'))
+            ->get()
+            ->map(function (Slot $slot) {
+                $reservation = $slot->reservation;
+                $optionMinutes = $reservation?->serviceOption?->duration_minutes ?? 0;
+                $serviceMinutes = $reservation?->service?->duration_minutes ?? 0;
+
+                return [
+                    'start' => $slot->starts_at->format('Y-m-d H:i'),
+                    'employee_id' => $reservation?->employee_id,
+                    'minutes' => $optionMinutes > 0 ? $optionMinutes : $serviceMinutes,
+                ];
+            })
             ->all();
 
         $myReservations = $request->user()

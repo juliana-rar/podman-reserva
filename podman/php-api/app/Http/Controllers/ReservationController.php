@@ -138,6 +138,13 @@ class ReservationController extends Controller
 
         $this->ensureWithinBusinessHours($startsAt);
 
+        $this->ensureNoOverlap(
+            $startsAt,
+            (int) $validated['employee_id'],
+            (int) $validated['service_id'],
+            isset($validated['service_option_id']) ? (int) $validated['service_option_id'] : null,
+        );
+
         // Reutilitza la franja si ja existeix (creada per l'admin o per una reserva prèvia).
         $slot = Slot::firstOrCreate(
             ['starts_at' => $startsAt],
@@ -198,6 +205,52 @@ class ReservationController extends Controller
         if ($minute < $opens || $minute >= $closes) {
             throw ValidationException::withMessages(['starts_at' => "Aquesta hora és fora de l'horari d'atenció."]);
         }
+    }
+
+    /**
+     * Comprova que el servei (amb la seva durada) no se solapi amb cap altra reserva
+     * del mateix empleat el mateix dia.
+     */
+    private function ensureNoOverlap(Carbon $startsAt, int $employeeId, int $serviceId, ?int $serviceOptionId): void
+    {
+        $newStart = $startsAt->copy();
+        $newEnd = $startsAt->copy()->addMinutes($this->durationMinutes($serviceId, $serviceOptionId));
+
+        $reservations = Reservation::query()
+            ->where('employee_id', $employeeId)
+            ->whereHas('slot', fn ($query) => $query->whereDate('starts_at', $startsAt->toDateString()))
+            ->with(['slot:id,starts_at', 'service:id,duration_minutes', 'serviceOption:id,duration_minutes'])
+            ->get();
+
+        foreach ($reservations as $reservation) {
+            $existingStart = Carbon::parse($reservation->slot->starts_at);
+            $existingMinutes = (int) ($reservation->serviceOption?->duration_minutes
+                ?: $reservation->service?->duration_minutes
+                ?: 0);
+            $existingEnd = $existingStart->copy()->addMinutes(max($existingMinutes, 1));
+
+            if ($newStart->lt($existingEnd) && $existingStart->lt($newEnd)) {
+                throw ValidationException::withMessages([
+                    'starts_at' => "Aquesta hora se solapa amb una altra reserva de l'empleat.",
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Durada en minuts d'un servei o opció (l'opció mana si en té; mínim 1).
+     */
+    private function durationMinutes(int $serviceId, ?int $serviceOptionId): int
+    {
+        $optionMinutes = $serviceOptionId ? (int) (ServiceOption::find($serviceOptionId)?->duration_minutes ?? 0) : 0;
+
+        if ($optionMinutes > 0) {
+            return $optionMinutes;
+        }
+
+        $serviceMinutes = (int) (Service::find($serviceId)?->duration_minutes ?? 0);
+
+        return $serviceMinutes > 0 ? $serviceMinutes : 1;
     }
 
     /**

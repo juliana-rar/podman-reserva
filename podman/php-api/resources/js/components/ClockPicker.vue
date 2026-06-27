@@ -6,9 +6,9 @@ const props = withDefaults(
     defineProps<{
         /** Hora seleccionada en format "HH:MM" (24h). */
         modelValue: string;
-        /** Hores disponibles a destacar, en format "HH:MM". */
+        /** Hores permeses (dins de l'horari), en format "HH:MM". */
         highlightTimes?: string[];
-        /** Si és cert, només es poden triar les hores destacades. */
+        /** Si és cert, les hores fora de `highlightTimes` queden deshabilitades. */
         restrict?: boolean;
     }>(),
     {
@@ -36,6 +36,9 @@ const parsed = computed(() => {
 const selectedHour = computed(() => parsed.value.hour);
 const minute = computed(() => parsed.value.minute);
 
+// Cert només quan hi ha una hora triada: així el rellotge surt net per defecte.
+const hasSelection = computed(() => selectedHour.value !== null);
+
 // Meridià (AM/PM) per traduir els 12 números del rellotge a hores 0-23.
 const meridiem = ref<'AM' | 'PM'>('AM');
 
@@ -55,6 +58,14 @@ const availableHours = computed(
 
 const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
+// Marques de quart i mitja que es mostren a l'anell interior del rellotge.
+const quarters = [
+    { min: 0, angle: 0 },
+    { min: 15, angle: 90 },
+    { min: 30, angle: 180 },
+    { min: 45, angle: 270 },
+];
+
 function toHour24(displayNumber: number, period: 'AM' | 'PM'): number {
     if (period === 'AM') {
         return displayNumber === 12 ? 0 : displayNumber;
@@ -69,19 +80,6 @@ function commit(hour24: number, min: number): void {
 
 function pickNumber(displayNumber: number): void {
     const hour24 = toHour24(displayNumber, meridiem.value);
-
-    if (props.restrict) {
-        const match = props.highlightTimes
-            .filter((time) => Number(time.split(':')[0]) === hour24)
-            .sort()[0];
-
-        if (match) {
-            emit('update:modelValue', match);
-        }
-
-        return;
-    }
-
     commit(hour24, minute.value);
 }
 
@@ -94,8 +92,13 @@ function setMeridiem(period: 'AM' | 'PM'): void {
     }
 }
 
+// Triar quart/mitja només té sentit quan ja hi ha una hora seleccionada.
 function setMinute(min: number): void {
-    commit(selectedHour.value ?? 9, min);
+    if (selectedHour.value === null) {
+        return;
+    }
+
+    commit(selectedHour.value, min);
 }
 
 function isSelected(displayNumber: number): boolean {
@@ -110,12 +113,16 @@ function isDisabled(displayNumber: number): boolean {
     return props.restrict && !isAvailable(displayNumber);
 }
 
-const handStyle = computed(() => {
+// Manecilla d'hores: angle segons l'hora i un petit avanç pels minuts.
+const hourHandStyle = computed(() => {
     const hour = selectedHour.value ?? 0;
     const angle = (hour % 12) * 30 + minute.value * 0.5;
 
     return { transform: `rotate(${angle}deg)` };
 });
+
+// Manecilla de minuts: 6° per minut.
+const minHandStyle = computed(() => ({ transform: `rotate(${minute.value * 6}deg)` }));
 
 const readout = computed(() =>
     selectedHour.value === null ? '--:--' : `${pad(selectedHour.value)}:${pad(minute.value)}`,
@@ -124,42 +131,50 @@ const readout = computed(() =>
 
 <template>
     <div class="rsv-clock">
-        <div>
-            <div>
+        <div class="rsv-clock-face">
+            <div class="rsv-clock-hours">
                 <button
                     v-for="n in numbers"
                     :key="n"
                     type="button"
-                    :class="{ 'is-selected': isSelected(n), 'is-available': isAvailable(n) }"
+                    class="rsv-hour"
+                    :style="{ '--a': `${n * 30}deg` }"
+                    :class="{ 'is-selected': isSelected(n) }"
                     :disabled="isDisabled(n)"
                     @click="pickNumber(n)"
                 >
                     {{ n }}
                 </button>
             </div>
-            <div :style="handStyle"></div>
-            <div></div>
+
+            <div class="rsv-clock-minutes">
+                <button
+                    v-for="q in quarters"
+                    :key="q.min"
+                    type="button"
+                    class="rsv-minute"
+                    :style="{ '--a': `${q.angle}deg` }"
+                    :class="{ 'is-selected': hasSelection && minute === q.min }"
+                    :disabled="!hasSelection"
+                    @click="setMinute(q.min)"
+                >
+                    {{ pad(q.min) }}
+                </button>
+            </div>
+
+            <div v-if="hasSelection" class="rsv-hand rsv-hand-hour" :style="hourHandStyle"></div>
+            <div v-if="hasSelection" class="rsv-hand rsv-hand-min" :style="minHandStyle"></div>
+            <div class="rsv-pivot"></div>
         </div>
 
-        <div>
-            <div>{{ readout }}</div>
-            <div>
+        <div class="rsv-clock-ctrls">
+            <div class="rsv-readout">{{ readout }}</div>
+            <div class="rsv-meridiem">
                 <button type="button" :class="{ 'is-active': meridiem === 'AM' }" @click="setMeridiem('AM')">
                     AM
                 </button>
                 <button type="button" :class="{ 'is-active': meridiem === 'PM' }" @click="setMeridiem('PM')">
                     PM
-                </button>
-            </div>
-            <div v-if="!restrict">
-                <button
-                    v-for="m in [0, 15, 30, 45]"
-                    :key="m"
-                    type="button"
-                    :class="{ 'is-active': minute === m }"
-                    @click="setMinute(m)"
-                >
-                    :{{ pad(m) }}
                 </button>
             </div>
         </div>

@@ -786,7 +786,8 @@
 
 #rsv-welcome .rsv-team-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(19rem, 22rem));
+    justify-content: center;
     gap: 1.75rem;
 }
 
@@ -841,7 +842,7 @@
     position: relative;
     display: block;
     width: 100%;
-    aspect-ratio: 4 / 5;
+    aspect-ratio: 16 / 9;
     background: rgba(127, 127, 160, 0.1);
     overflow: hidden;
 }
@@ -914,56 +915,25 @@
     overflow: hidden;
 }
 
-/* Mini-carrusel d'obres dins la targeta: imatges grans que s'alternen soles. */
-#rsv-welcome .rsv-team-carousel {
-    position: relative;
+/* Galeria d'obres dins la targeta: diverses imatges visibles alhora, en gran. */
+#rsv-welcome .rsv-team-gallery {
     margin-top: auto;
-    width: 100%;
-    aspect-ratio: 16 / 10;
-    border-radius: 0.9rem;
-    overflow: hidden;
-    background: rgba(127, 127, 160, 0.1);
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
 }
 
-#rsv-welcome .rsv-team-carousel > img {
-    position: absolute;
-    inset: 0;
+#rsv-welcome .rsv-team-gallery > img {
     width: 100%;
-    height: 100%;
+    aspect-ratio: 4 / 3;
     object-fit: cover;
-    opacity: 0;
-    transition: opacity 0.7s ease;
+    border-radius: 0.7rem;
+    background: rgba(127, 127, 160, 0.1);
+    transition: transform 0.25s ease;
 }
 
-#rsv-welcome .rsv-team-carousel > img.is-active {
-    opacity: 1;
-}
-
-/* Indicadors de posició del carrusel. */
-#rsv-welcome .rsv-team-dots {
-    position: absolute;
-    bottom: 0.55rem;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: center;
-    gap: 0.3rem;
-}
-
-#rsv-welcome .rsv-team-dots > i {
-    width: 0.4rem;
-    height: 0.4rem;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.55);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-    transition:
-        width 0.3s ease,
-        background 0.3s ease;
-}
-
-#rsv-welcome .rsv-team-dots > i.on {
-    width: 1.1rem;
-    background: #fff;
+#rsv-welcome .rsv-team-card:hover .rsv-team-gallery > img {
+    transform: scale(1.03);
 }
 
 #rsv-welcome .rsv-reviews {
